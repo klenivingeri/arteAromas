@@ -24,7 +24,7 @@ Tenho interesse na *${item.name}*
 
 Quero aproveitar! Pode me passar mais detalhes? 😍`;
   }
-  return `https://wa.me/5516993140835?text=${encodeURIComponent(mensagem)}`;
+  return `https://wa.me/5516982660880?text=${encodeURIComponent(mensagem)}`;
 };
 
 const aplicarDesconto = (valorOriginal, percentualDesconto) => {
@@ -41,7 +41,7 @@ export default function PagePdp({ item = {} }) {
         <Header />
         <div
           id="banner"
-          className="w-full md:w-[800px] relative flex flex-col items-center"
+          className="w-full lg:w-[800px] relative flex flex-col items-center"
         >
           {item.img && (
             <Image
@@ -50,79 +50,79 @@ export default function PagePdp({ item = {} }) {
               width={1000}
               height={20}
               priority
-              className="w-full md:w-[800px] object-cover object-center fade"
+              className="w-full lg:w-[800px] object-cover object-center fade"
             />
           )}
           {item.discont > 0 && (
-            <div className="absolute bottom-0 left-0 rounded-full bg-black text-white px-2 py-1 md:p-4 m-2 text-sm md:text-3xl">
+            <div className="absolute bottom-0 left-0 rounded-full bg-black text-white px-2 py-1 lg:p-4 m-2 text-sm lg:text-3xl">
               {item.discont}% OFF
             </div>
           )}
         </div>
       </header>
-      <main id="novidades" className="w-full md:w-[800px] text-black fade px-2">
-        <p className="text-1xl md:text-2xl font-medium mt-4 mb-2 text-shadow-md ">
+      <main id="novidades" className="w-full lg:w-[800px] text-black fade px-2">
+        <p className="text-1xl lg:text-2xl font-medium mt-4 mb-2 text-shadow-md ">
           {item.name}
         </p>
-        <div className="flex w-full gap-2 md:w-[600px] text-black justify-between p-2">
-          <p className="flex w-full items-center gap-2 text-sm md:text-1xl  text-shadow-md">
+        <div className="flex w-full gap-2 lg:w-[600px] text-black justify-between p-2">
+          <p className="flex w-full items-center gap-2 text-sm lg:text-1xl  text-shadow-md">
             <Image
               src="/shipping-fast-solid-svgrepo-com.png"
               alt="banner"
               width={500}
               height={500}
               priority
-              className="h-4 w-4 md:h-6 md:w-6 fade invert"
+              className="h-4 w-4 lg:h-6 lg:w-6 fade invert"
             />
             Entregas para todo Brasil
           </p>
-          <p className="flex w-full items-center gap-2 text-sm md:text-1xl text-shadow-md">
+          <p className="flex w-full items-center gap-2 text-sm lg:text-1xl text-shadow-md">
             <Image
               src="/security-verified-svgrepo-com.png"
               alt="banner"
               width={500}
               height={500}
               priority
-              className="h-4 w-4 md:h-6 md:w-6 rounded-full fade invert"
+              className="h-4 w-4 lg:h-6 lg:w-6 rounded-full fade invert"
             />
             Compra Segura
           </p>
         </div>
-        <div className="flex w-full gap-2 md:w-[600px]  text-black justify-between p-2">
-          <p className="flex w-full items-center gap-2 text-sm md:text-1xl  text-shadow-md">
+        <div className="flex w-full gap-2 lg:w-[600px]  text-black justify-between p-2">
+          <p className="flex w-full items-center gap-2 text-sm lg:text-1xl  text-shadow-md">
             <Image
               src="/art-design-paint-pallet-format-text-svgrepo-com.png"
               alt="banner"
               width={500}
               height={500}
               priority
-              className="h-4 w-4 md:h-6 md:w-6 fade invert"
+              className="h-4 w-4 lg:h-6 lg:w-6 fade invert"
             />
             Produto Artesanal
           </p>
-          <p className="flex w-full items-center gap-2 text-sm md:text-1xl  text-shadow-md">
+          <p className="flex w-full items-center gap-2 text-sm lg:text-1xl  text-shadow-md">
             <Image
               src="/present-svgrepo-com.png"
               alt="banner"
               width={500}
               height={500}
               priority
-              className="h-4 w-4 md:h-6 md:w-6 fade invert"
+              className="h-4 w-4 lg:h-6 lg:w-6 fade invert"
             />
             Ideal para presente
           </p>
         </div>
 
         <div className="flex flex-col mt-6 p-2  rounded-md bg-white/50">
-          <span className="text-sm md:text-base text-gray-500 line-through">
+          <span className="text-sm lg:text-base text-gray-500 line-through">
             {currency(item.price)}
           </span>
           <p className=" flex justify-between  text-4xl">
-            <span className="font-semibold mr-4 md:text-6xl">
+            <span className="font-semibold mr-4 lg:text-6xl">
               {currency(value)}
             </span>
             {item.discont > 0 && (
-              <span className="flex font-semibold mt-1 text-white justify-center  items-center text-sm md:text-base p-2 bg-gradient-to-r from-red-500 to-orange-500 rounded-sm h-6 md:h-10 ">
+              <span className="flex font-semibold mt-1 text-white justify-center  items-center text-sm lg:text-base p-2 bg-gradient-to-r from-red-500 to-orange-500 rounded-sm h-6 lg:h-10 ">
                 🔥 Economia {currency(item.price - value)}
               </span>
             )}
@@ -135,7 +135,7 @@ export default function PagePdp({ item = {} }) {
         </div>
         <Link
           href={whatsapp(item, value)}
-          className="flex font-semibold justify-center items-center text-1xl md:text-2xl  mt-4 bg-[var(--logo2)] text-white rounded-sm w-full h-12 md:h-16"
+          className="flex font-semibold justify-center items-center text-1xl lg:text-2xl  mt-4 bg-[var(--logo2)] text-white rounded-sm w-full h-12 lg:h-16"
         >
           <Image
             src="/whatsapp.png"
@@ -147,7 +147,7 @@ export default function PagePdp({ item = {} }) {
           Pedir agora
         </Link>
         <ScrollFadeIn>
-          <p className="text-1xl md:text-1xl font-medium mt-10 md:px-10">
+          <p className="text-1xl lg:text-1xl font-medium mt-10 lg:px-10">
             Comentarios
           </p>
           <p className="text-sm">"Cheiro maravilhoso, deixou minha casa super aconchegante!"</p>

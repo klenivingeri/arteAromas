@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "cookie": "^1.1.1",
+    "crypto": "^1.0.1",
     "embla-carousel-auto-scroll": "^8.6.0",
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",

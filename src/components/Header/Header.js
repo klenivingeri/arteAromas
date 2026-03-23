@@ -69,10 +69,10 @@ const LiGroup = ({ isOpen, setIsOpen, isChange }) => (
   </li>
 );
 
-export const Header = () => {
+export const Header = ({disable = false}) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const [isChange, setIsChange] = useState(false);
+  const [isChange, setIsChange] = useState(disable);
 
   useEffect(() => {
     const handleScroll = () => {
