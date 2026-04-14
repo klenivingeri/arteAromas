@@ -1,4 +1,5 @@
 import { Inter, Roboto } from "next/font/google";
+import { ProductsProvider } from "@/context/ProductsContext";
 import "./globals.css";
 
 const inter = Inter({
@@ -47,7 +48,7 @@ export default function RootLayout({ children }) {
       className={`${inter.variable} ${roboto.variable} h-full antialiased`}
     >
       <body suppressHydrationWarning className="min-h-full flex flex-col">
-        {children}
+        <ProductsProvider>{children}</ProductsProvider>
       </body>
     </html>
   );

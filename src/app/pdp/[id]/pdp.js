@@ -1,8 +1,12 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { getProductById } from "@/app/actions/products";
 import { Header } from "@/components/Header/Header";
 import ScrollFadeIn from "@/components/ScrollFadeIn";
+import { useProducts } from "@/context/ProductsContext";
 import { currency } from "@/utils/currency";
+import { normalizeProduct } from "@/utils/product";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -14,11 +18,11 @@ Tenho interesse na *${item.name}*
 
 Pode me passar mais informações? 😊`;
 
-  if (item.discont) {
+  if (item.discountPercent > 0) {
     mensagem = `✨ *Olá! Tudo bem?*  
 Tenho interesse na *${item.name}*  
 
-🔥 *Promoção de ${item.discont}% OFF!*  
+🔥 *Promoção de ${item.discountPercent}% OFF!*  
 💰 De: ~~${currency(item.price)}~~  
 💸 Por: *${currency(valorComDesconto)}*  
 
@@ -32,9 +36,69 @@ const aplicarDesconto = (valorOriginal, percentualDesconto) => {
   return valorFinal;
 };
 
-export default function PagePdp({ item = {} }) {
-  const valorComDesconto = aplicarDesconto(item.price, item.discont);
-  const value = item.discont > 0 ? valorComDesconto : item.price;
+export default function PagePdp({ productId }) {
+  const { getProductById: getCachedProductById, isHydrated, upsertProduct } = useProducts();
+  const [fallbackItem, setFallbackItem] = useState(null);
+  const [isFetchingFallback, setIsFetchingFallback] = useState(false);
+  const cachedItem = getCachedProductById(productId);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadFallbackProduct() {
+      if (!isHydrated || cachedItem || !productId) return;
+
+      setIsFetchingFallback(true);
+      const serverProduct = await getProductById(productId);
+
+      if (!isMounted) return;
+
+      if (serverProduct) {
+        setFallbackItem(serverProduct);
+        upsertProduct(serverProduct);
+      }
+
+      setIsFetchingFallback(false);
+    }
+
+    loadFallbackProduct();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [cachedItem, isHydrated, productId, upsertProduct]);
+
+  const item = useMemo(
+    () => normalizeProduct(cachedItem || fallbackItem),
+    [cachedItem, fallbackItem],
+  );
+
+  if (!item) {
+    return (
+      <div className="flex min-h-screen flex-col items-center">
+        <Header />
+        <main className="w-full max-w-3xl px-4 pt-32 text-center text-black">
+          <p className="text-2xl font-semibold">
+            {isFetchingFallback ? "Carregando produto..." : "Produto não encontrado."}
+          </p>
+          <p className="mt-2 text-gray-600">
+            {isHydrated
+              ? "Tente voltar para a Home e abrir o produto novamente."
+              : "Carregando cache local..."}
+          </p>
+          <Link
+            href="/"
+            className="mt-6 inline-flex items-center rounded-sm bg-[var(--logo2)] px-6 py-3 font-semibold text-white"
+          >
+            Voltar para Home
+          </Link>
+        </main>
+      </div>
+    );
+  }
+
+  const valorComDesconto = aplicarDesconto(item.price, item.discountPercent);
+  const value = item.discountPercent > 0 ? valorComDesconto : item.price;
   return (
     <div className="flex flex-col items-center">
       <header className="flex flex-1 w-full items-center justify-center">
@@ -43,9 +107,9 @@ export default function PagePdp({ item = {} }) {
           id="banner"
           className="w-full lg:w-[800px] relative flex flex-col items-center"
         >
-          {item.img && (
+          {item.image && (
             <Image
-              src={item.img}
+              src={item.image}
               alt="banner"
               width={1000}
               height={20}
@@ -53,9 +117,9 @@ export default function PagePdp({ item = {} }) {
               className="w-full lg:w-[800px] object-cover object-center fade"
             />
           )}
-          {item.discont > 0 && (
+          {item.discountPercent > 0 && (
             <div className="absolute bottom-0 left-0 rounded-full bg-black text-white px-2 py-1 lg:p-4 m-2 text-sm lg:text-3xl">
-              {item.discont}% OFF
+              {item.discountPercent}% OFF
             </div>
           )}
         </div>
@@ -121,7 +185,7 @@ export default function PagePdp({ item = {} }) {
             <span className="font-semibold mr-4 lg:text-6xl">
               {currency(value)}
             </span>
-            {item.discont > 0 && (
+            {item.discountPercent > 0 && (
               <span className="flex font-semibold mt-1 text-white justify-center  items-center text-sm lg:text-base p-2 bg-gradient-to-r from-red-500 to-orange-500 rounded-sm h-6 lg:h-10 ">
                 🔥 Economia {currency(item.price - value)}
               </span>

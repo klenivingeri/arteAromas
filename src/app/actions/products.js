@@ -2,6 +2,7 @@
 
 import { put, list, del } from '@vercel/blob';
 import { revalidatePath } from 'next/cache';
+import { normalizeProduct } from '@/utils/product';
 
 const PRODUCTS_JSON_PATH = 'config/products.json';
 
@@ -59,5 +60,16 @@ export async function uploadProductImage(formData) {
     return { success: true, url: blob.url };
   } catch (error) {
     return { success: false, error: error.message };
+  }
+}
+
+export async function getProductById(productId) {
+  try {
+    const products = await getProductsData();
+    const found = products.find((product) => String(product?.id) === String(productId));
+    return normalizeProduct(found);
+  } catch (error) {
+    console.error('Erro ao buscar produto por id:', error);
+    return null;
   }
 }

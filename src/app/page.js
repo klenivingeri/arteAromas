@@ -1,136 +1,43 @@
-"use client";
-
 import TestimonialSection from "@/components/CarouselRow";
 import CarouselText from "@/components/CarouselText";
 import { Header } from "@/components/Header/Header";
+import HomeProductsHydrator from "@/components/HomeProductsHydrator";
 import ScrollFadeIn from "@/components/ScrollFadeIn";
+import { getHomeData } from "@/app/actions/home";
 import { currency } from "@/utils/currency";
+import { normalizeProducts } from "@/utils/product";
 import Image from "next/image";
 import Link from "next/link";
 
-const products = [
-  {
-    id: "1",
-    name: "Vela Aromatica Lumière Cimento 1",
-    price: 200,
-    img: "/imagem1.jpg",
-    discont: 0,
-    description: "Descrição do produto",
-  },
-  {
-    id: "2",
-    name: "Vela Aromatica Lumière Cimento 2",
-    price: 130,
-    img: "/imagem1.jpg",
-    discont: 30,
-    description: "Descrição do produto",
-  },
-  {
-    id: "3",
-    name: "Vela Aromatica Lumière Cimento 3",
-    price: 110,
-    img: "/imagem1.jpg",
-    discont: 10,
-    description: "Descrição do produto",
-  },
-  {
-    id: "4",
-    name: "Vela Aromatica Lumière Cimento 4",
-    price: 100,
-    img: "/imagem1.jpg",
-    discont: 3,
-    description: "Descrição do produto",
-  },
-  {
-    id: "5",
-    name: "Vela Aromatica Lumière Cimento 5",
-    price: 100,
-    img: "/imagem1.jpg",
-    discont: 10,
-    description: "Descrição do produto",
-  },
-  {
-    id: "6",
-    name: "Vela Aromatica Lumière Cimento 6",
-    price: 100,
-    img: "/imagem1.jpg",
-    discont: 10,
-    description: "Descrição do produto",
-  },
-  {
-    id: "7",
-    name: "Vela Aromatica Lumière Cimento 7",
-    price: 200,
-    img: "/imagem1.jpg",
-    discont: 10,
-    description: "Descrição do produto",
-  },
-  {
-    id: "8",
-    name: "Vela Aromatica Lumière Cimento 8",
-    price: 130,
-    img: "/imagem1.jpg",
-    discont: 30,
-    description: "Descrição do produto",
-  },
-  {
-    id: "9",
-    name: "Vela Aromatica Lumière Cimento 9",
-    price: 110,
-    img: "/imagem1.jpg",
-    discont: 10,
-    description: "Descrição do produto",
-  },
-  {
-    id: "10",
-    name: "Vela Aromatica Lumière Cimento 10",
-    price: 100,
-    img: "/imagem1.jpg",
-    discont: 3,
-    description: "Descrição do produto",
-  },
-  {
-    id: "11",
-    name: "Vela Aromatica Lumière Cimento 11",
-    price: 100,
-    img: "/imagem1.jpg",
-    discont: 10,
-    description: "Descrição do produto",
-  },
-  {
-    id: "12",
-    name: "Vela Aromatica Lumière Cimento 12",
-    price: 100,
-    img: "/imagem1.jpg",
-    discont: 10,
-    description: "Descrição do produto",
-  },
-];
-
-const aplicarDesconto = (valorOriginal, percentualDesconto) => {
-  const valorFinal = valorOriginal * (1 - percentualDesconto / 100);
-  return valorFinal;
+const applyDiscount = (price, discountPercent) => {
+  return price * (1 - discountPercent / 100);
 };
 
-export default function Home() {
+export default async function Home() {
+  const homeDataRaw = await getHomeData();
+  const normalizedProducts = normalizeProducts(homeDataRaw.products);
+  const homeData = {
+    ...homeDataRaw,
+    products: normalizedProducts,
+    launches: normalizedProducts.slice(-3).reverse(),
+  };
+  const bannerTitle = homeData.banner?.title?.trim() || "Transforme sua casa em um refúgio acolhedor";
+  const bannerSubTitle = homeData.banner?.subTitle?.trim() || "Velas artesanais com aromas únicos";
+  const bannerImage = homeData.banner?.imageUrl || "/banner.jpg";
+
   return (
     <div className="flex flex-col items-center">
+      <HomeProductsHydrator products={homeData.products} />
       <header className="flex flex-1 w-full items-center justify-center">
         <Header />
         <div id="banner" className="w-full relative flex flex-col items-center">
           <div className=" absolute w-full flex justify-center items-center h-[600px]">
             <div className=" w-full lg:w-[800px] p-4 slideReveal">
               <p className=" text-4xl lg:text-6xl text-[var(--logo1)] text-shadow-lg font-bold">
-                ✨ Transforme
-              </p>
-              <p className=" text-4xl lg:text-6xl text-[var(--logo1)] text-shadow-lg font-bold">
-                sua casa em um
-              </p>
-              <p className=" text-4xl lg:text-6xl text-[var(--logo1)] text-shadow-lg font-bold">
-                refújo acolhedor
+                {bannerTitle}
               </p>
               <p className="text-1xl lg:text-2xl text-[var(--logo1)] text-shadow-lg my-4 font-bold">
-                Velas artesanais com aromas únicos
+                {bannerSubTitle}
               </p>
 
               <div className="flex gap-4 mt-6">
@@ -200,7 +107,7 @@ export default function Home() {
             </div>
           </div>
           <Image
-            src="/banner.jpg"
+            src={bannerImage}
             alt="banner"
             width={1000}
             height={20}
@@ -211,7 +118,7 @@ export default function Home() {
       </header>
       <main id="novidades" className="w-full lg:w-7xl pt-4 fade">
         <ScrollFadeIn>
-          <CarouselText />
+          <CarouselText phrases={homeData.texts} />
         </ScrollFadeIn>
 
         <ScrollFadeIn>
@@ -220,40 +127,63 @@ export default function Home() {
           </p>
         </ScrollFadeIn>
         <ScrollFadeIn>
-          <div className="flex justify-around">
-            <div className="flex flex-col items-center">
-              <Image
-                src="/imagem1.jpg"
-                alt="banner"
-                width={500}
-                height={500}
-                priority
-                className="h-48 w-32 lg:h-68 lg:w-68 rounded-sm object-cover object-center fade  border p-1 border-[var(--logo2)] "
-              />
-              <p className="text-1xl lg:text-2xl mt-4">Produto 1</p>
-            </div>
-            <div className="flex flex-col items-center">
-              <Image
-                src="/banner.jpg"
-                alt="banner"
-                width={500}
-                height={500}
-                priority
-                className="h-48 w-32 lg:h-68 lg:w-68 rounded-sm object-cover object-center fade  border p-1 border-[var(--logo2)] "
-              />
-              <p className="text-1xl lg:text-2xl mt-4">Produto 2</p>
-            </div>
-            <div className="flex flex-col items-center">
-              <Image
-                src="/imagem1.jpg"
-                alt="banner"
-                width={500}
-                height={500}
-                priority
-                className="h-48 w-32 lg:h-68 lg:w-68 rounded-sm object-cover object-center fade border p-1 border-[var(--logo2)] "
-              />
-              <p className="text-1xl lg:text-2xl mt-4">Produto 3</p>
-            </div>
+          <div className="flex gap-4 overflow-x-auto px-2 pb-2 lg:px-10 lg:overflow-visible">
+            {homeData.launches.length === 0 && (
+              <p className="text-gray-500 px-4">Nenhum lançamento cadastrado no painel.</p>
+            )}
+            {homeData.launches.map((product) => {
+              const discountPercent = product.discountPercent || 0;
+              const valorComDesconto = applyDiscount(product.price || 0, discountPercent);
+              const value = discountPercent > 0 ? valorComDesconto : product.price;
+
+              return (
+              <Link
+                key={product.id}
+                href={`/pdp/${product.id}`}
+                className="flex h-[360px] w-[200px] shrink-0 lg:h-[420px] lg:w-[260px] flex-col rounded-md border border-[var(--logo2)]/50 p-1 text-black shadow-md"
+              >
+                <div className="relative h-44 lg:h-52 overflow-hidden rounded-sm">
+                  <Image
+                    src={product.image || "/imagem1.jpg"}
+                    alt={product.name || "Produto"}
+                    width={500}
+                    height={500}
+                    priority
+                    className="h-full w-full object-cover object-center shadow-md"
+                  />
+                  {discountPercent > 0 && (
+                    <div className="absolute shadow-md top-2 left-0 rounded-br-full rounded-tr-full bg-[var(--logo1)] text-[var(--logo2)] px-2 py-1 text-sm lg:text-xl">
+                      {discountPercent}% OFF
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-2 px-1 h-14 lg:h-16">
+                  <p
+                    className="font-semibold overflow-hidden"
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                    }}
+                  >
+                    {product.name || "Produto sem nome"}
+                  </p>
+                </div>
+
+                <span className="block w-full border-b border-black/10 my-2"></span>
+
+                <div className="mt-auto flex h-11 items-center gap-2 px-1 pb-1">
+                  <p className="flex w-full justify-center lg:text-2xl">
+                    <span className="font-semibold text-lg">{currency(value)}</span>
+                  </p>
+                  <span className="flex font-semibold justify-center items-center text-1xl bg-[var(--logo2)] text-white rounded-sm w-full h-10 lg:h-10">
+                    Ver
+                  </span>
+                </div>
+              </Link>
+              );
+            })}
           </div>
         </ScrollFadeIn>
         <ScrollFadeIn>
@@ -265,36 +195,42 @@ export default function Home() {
           </p>
         </ScrollFadeIn>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 px-2 lg:px-10">
-          {products.map((item, i) => {
-            const valorComDesconto = aplicarDesconto(item.price, item.discont);
-            const value = item.discont > 0 ? valorComDesconto : item.price;
+          {homeData.products.map((item) => {
+            const discountPercent = item.discountPercent || 0;
+            const valorComDesconto = applyDiscount(item.price || 0, discountPercent);
+            const value = discountPercent > 0 ? valorComDesconto : item.price;
             return (
-              <ScrollFadeIn key={i}>
-                <div
-                  className="flex flex-col text-black border border-[var(--logo2)]/50 p-1 rounded-md shadow-md"
-                >
-                  <div className="relative">
+              <ScrollFadeIn key={item.id}>
+                <div className="flex h-[360px] lg:h-[420px] flex-col text-black border border-[var(--logo2)]/50 p-1 rounded-md shadow-md">
+                  <div className="relative h-52 lg:h-60 overflow-hidden rounded-sm">
                     <Image
-                      src={item.img}
-                      alt="banner"
+                      src={item.image || "/imagem1.jpg"}
+                      alt={item.name || "Produto"}
                       width={500}
                       height={500}
                       priority
-                      className="h-full w-full object-cover object-center rounded-sm shadow-md"
+                      className="h-full w-full object-cover object-center shadow-md"
                     />
-                    {item.discont > 0 && (
+                    {discountPercent > 0 && (
                       <div className="absolute shadow-md top-2 left-0 rounded-br-full rounded-tr-full bg-[var(--logo1)] text-[var(--logo2)] px-2 py-1 text-sm lg:text-xl">
-                        {item.discont}% OFF
+                        {discountPercent}% OFF
                       </div>
                     )}
                   </div>
-                  <div>
-                    <p className="text-1xl lg:text-1xl mt-2 px-1 font-semibold">
-                      {item.name}
+                  <div className="mt-2 px-1 h-14 lg:h-16">
+                    <p
+                      className="font-semibold overflow-hidden"
+                      style={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                    >
+                      {item.name || "Produto sem nome"}
                     </p>
                   </div>
                   <span className="block w-full border-b border-black/10 my-2"></span>
-                  <div className="flex items-center gap-2">
+                  <div className="mt-auto flex h-11 items-center gap-2">
                     <p className="flex w-full justify-center lg:text-2xl">
                       <span className="font-semibold text-lg">
                         {currency(value)}
@@ -311,6 +247,11 @@ export default function Home() {
               </ScrollFadeIn>
             );
           })}
+          {homeData.products.length === 0 && (
+            <p className="text-gray-500 col-span-2 lg:col-span-4 text-center py-8">
+              Nenhum produto cadastrado no painel.
+            </p>
+          )}
         </div>
 
         <ScrollFadeIn>
@@ -320,7 +261,7 @@ export default function Home() {
         </ScrollFadeIn>
 
         <ScrollFadeIn>
-          <TestimonialSection />
+          <TestimonialSection comments={homeData.comments} />
         </ScrollFadeIn>
         <ScrollFadeIn>
           <div className="flex w-full text-sm justify-between gap-4 p-2 mt-4">

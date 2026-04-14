@@ -5,8 +5,19 @@ import useEmblaCarousel from "embla-carousel-react";
 import AutoScroll from "embla-carousel-auto-scroll";
 import Image from "next/image";
 
-export default function TestimonialSection() {
-  const comments = ["João", "Maria", "Pedro", "Ana", "Lucas","João", "Maria", "Pedro", "Ana", "Lucas"];
+const defaultComments = [
+  {
+    id: "default-1",
+    name: "Cliente",
+    phrase: "A experiência foi excelente e o aroma é maravilhoso.",
+    image: "/aaa.webp",
+  },
+];
+
+export default function TestimonialSection({ comments = [] }) {
+  const baseComments =
+    Array.isArray(comments) && comments.length > 0 ? comments : defaultComments;
+  const carouselComments = [...baseComments, ...baseComments];
 
   // 1. Carrossel Superior: Movimento contínuo para a esquerda
   const [emblaRef1] = useEmblaCarousel({ 
@@ -31,13 +42,13 @@ export default function TestimonialSection() {
     })
   ]);
 
-  const Card = ({ name }) => (
+  const Card = ({ name, phrase, image }) => (
     <div 
       dir="ltr"
       className="flex-[0_0_auto] min-w-[280px] md:min-w-[300px] mx-3 flex items-center border border-[var(--logo2)] rounded-full p-3 bg-white/60 select-none shadow-sm"
     >
       <Image
-        src="/aaa.webp"
+        src={image || "/aaa.webp"}
         alt={name}
         width={40}
         height={40}
@@ -46,7 +57,7 @@ export default function TestimonialSection() {
       <div className="flex flex-col">
         <span className="text-sm font-bold text-gray-800 leading-tight">{name}</span>
         <span className="text-xs md:text-sm text-gray-500 leading-tight">
-          Comentário de {name}, muito legal!
+          {phrase || `Comentário de ${name}, muito legal!`}
         </span>
       </div>
     </div>
@@ -58,9 +69,13 @@ export default function TestimonialSection() {
       {/* Linha 1 */}
       <div className="embla overflow-hidden cursor-grab active:cursor-grabbing" ref={emblaRef1}>
         <div className="embla__container flex">
-          {/* Dica: Com AutoScroll, não precisa duplicar o array, o Embla cuida do loop */}
-          {comments.map((name, idx) => (
-            <Card key={`top-${idx}`} name={name} />
+          {carouselComments.map((comment, idx) => (
+            <Card
+              key={`top-${idx}-${comment.id || "comment"}`}
+              name={comment.name || "Cliente"}
+              phrase={comment.phrase}
+              image={comment.image}
+            />
           ))}
         </div>
       </div>
@@ -68,8 +83,13 @@ export default function TestimonialSection() {
       {/* Linha 2 (Espelhada) */}
       <div className="embla overflow-hidden cursor-grab active:cursor-grabbing" ref={emblaRef2} dir="rtl">
         <div className="embla__container flex">
-          {comments.map((name, idx) => (
-            <Card key={`bottom-${idx}`} name={name} />
+          {carouselComments.map((comment, idx) => (
+            <Card
+              key={`bottom-${idx}-${comment.id || "comment"}`}
+              name={comment.name || "Cliente"}
+              phrase={comment.phrase}
+              image={comment.image}
+            />
           ))}
         </div>
       </div>
