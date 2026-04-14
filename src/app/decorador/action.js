@@ -1,29 +1,50 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import {
+  authenticateFixedUserFromBlob,
+  createSessionCookieValue,
+} from "@/lib/auth.server";
+import { SESSION_COOKIE_NAME } from "@/lib/auth.shared";
 
-export async function loginAction(formData) {
-  "use server";
-  const email = formData.get("email");
-  const password = formData.get("password");
+export async function loginAction(_prevState, formData) {
+  const email = String(formData?.get("email") || "").trim();
+  const password = String(formData?.get("password") || "");
 
   if (!email || !password) {
     return { error: "Preencha tudo" };
   }
 
-  const res = await fetch("http://localhost:3000/api/v1/login", {
-    method: "POST",
-    body: JSON.stringify({ email, password }),
-  });
+  const auth = await authenticateFixedUserFromBlob({ email, password });
+  if (!auth.success) {
+    // Avoid leaking internal auth/blob configuration details in the login UI.
+    const isCredentialError = auth.message === "Credenciais inválidas";
 
-  const user = await res.json();
-
-  if (!user.success) {
-    return { error: user.message };
+    return {
+      error: isCredentialError
+        ? "Email ou senha inválidos"
+        : "Não foi possível entrar agora. Tente novamente.",
+    };
   }
 
-  // 🔐 aqui é SERVER (melhor lugar)
-  // você pode salvar cookie ao invés de localStorage
+  const secret = process.env.COOKIE_SECRET;
+  if (!secret) {
+    return {
+      error:
+        "COOKIE_SECRET não configurada no ambiente. Configure a variável e reinicie o servidor.",
+    };
+  }
+
+  const sessionValue = createSessionCookieValue(auth.user.id, secret);
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE_NAME, sessionValue, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    path: "/",
+    maxAge: auth.maxAge,
+  });
 
   redirect("/painel");
 }

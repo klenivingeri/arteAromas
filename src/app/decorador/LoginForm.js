@@ -1,6 +1,13 @@
+"use client";
+
+import { useActionState } from "react";
 import { loginAction } from "./action";
 
 export default function LoginForm() {
+  const [state, formAction, isPending] = useActionState(loginAction, {
+    error: "",
+  });
+
   return (
     <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-2xl p-8 border border-gray-100 mb-50">
       <div className="text-center mb-8">
@@ -10,7 +17,7 @@ export default function LoginForm() {
         </p>
       </div>
 
-      <form className="space-y-5" action={loginAction}>
+      <form className="space-y-5" action={formAction}>
         <div className="flex flex-col items-start gap-1.5">
           <label className="text-sm font-medium text-gray-700 ml-1">
             Login
@@ -41,10 +48,16 @@ export default function LoginForm() {
         </div>
         <button
           type="submit"
+          disabled={isPending}
           className="w-full py-3.5 mt-4 rounded-xl text-white font-bold bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 transform active:scale-[0.98] transition-all shadow-lg shadow-orange-200"
         >
-          Entrar
+          {isPending ? "Entrando..." : "Entrar"}
         </button>
+        {state?.error ? (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+            {state.error}
+          </p>
+        ) : null}
         {/*
   <p className="text-center text-sm text-gray-600 mt-6">
     Não tem uma conta? <a href="#" className="font-bold text-orange-600 hover:underline">Cadastre-se</a>
