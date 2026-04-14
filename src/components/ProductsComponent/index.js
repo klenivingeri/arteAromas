@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { uploadCommentImage } from "@/app/actions/comments";
 import { saveProductsList, uploadProductImage } from "@/app/actions/products";
@@ -35,6 +35,17 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editingTab, setEditingTab] = useState("product");
+  const [categoryDropdownProductId, setCategoryDropdownProductId] = useState(null);
+
+  const categorySuggestions = useMemo(() => {
+    const categories = products
+      .map((product) => String(product?.category || "").trim())
+      .filter(Boolean);
+
+    return [...new Set(categories)].sort((a, b) =>
+      a.localeCompare(b, "pt-BR", { sensitivity: "base" }),
+    );
+  }, [products]);
 
   useEffect(() => {
     if (initialData) setProducts(prepareProductsForEditor(initialData));
@@ -71,6 +82,7 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
         rating: 10,
         interactions: 0,
         isActive: true,
+        category: "",
         comments: [createEmptyProductComment()],
         id: newId,
       },
@@ -99,6 +111,7 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
       setProducts(productsForEditor);
       onSaveSuccess(result.data);
       setEditingId(null);
+      setCategoryDropdownProductId(null);
     }
     setSaving(false);
   };
@@ -312,6 +325,41 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
                         className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm font-bold shadow-inner"
                         placeholder="Nome..."
                       />
+                    </div>
+
+                    <div className="sm:col-span-2 relative">
+                      <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Categoria</label>
+                      <input
+                        type="text"
+                        value={product.category || ""}
+                        onChange={(e) => handleChange(index, "category", e.target.value)}
+                        onFocus={() => setCategoryDropdownProductId(product.id)}
+                        onBlur={() => {
+                          setTimeout(() => setCategoryDropdownProductId(null), 120);
+                        }}
+                        className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm font-semibold shadow-inner"
+                        placeholder="Ex: Aromatizador"
+                      />
+
+                      {categoryDropdownProductId === product.id && categorySuggestions.length > 0 && (
+                        <div className="absolute z-20 mt-2 w-full rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
+                          <div className="max-h-44 overflow-y-auto">
+                            {categorySuggestions.map((category) => (
+                              <button
+                                key={category}
+                                type="button"
+                                className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
+                                onMouseDown={() => {
+                                  handleChange(index, "category", category);
+                                  setCategoryDropdownProductId(null);
+                                }}
+                              >
+                                {category}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="sm:col-span-2 bg-yellow-50/50 p-4 rounded-2xl border border-yellow-100 shadow-sm">

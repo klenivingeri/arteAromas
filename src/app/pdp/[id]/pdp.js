@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { getProductById } from "@/app/actions/products";
 import { Header } from "@/components/Header/Header";
 import ScrollFadeIn from "@/components/ScrollFadeIn";
@@ -39,6 +39,54 @@ Quero aproveitar! Pode me passar mais detalhes? 😍`;
 const aplicarDesconto = (valorOriginal, percentualDesconto) => {
   const valorFinal = valorOriginal * (1 - percentualDesconto / 100);
   return valorFinal;
+};
+
+const renderWhatsAppInline = (text, keyPrefix) => {
+  const inlineRegex = /(\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~)/g;
+  const nodes = [];
+  let lastIndex = 0;
+  let tokenIndex = 0;
+
+  for (const match of text.matchAll(inlineRegex)) {
+    const start = match.index ?? 0;
+    const token = match[0] || "";
+
+    if (start > lastIndex) {
+      nodes.push(text.slice(lastIndex, start));
+    }
+
+    const content = token.slice(1, -1);
+    const nodeKey = `${keyPrefix}-${tokenIndex}`;
+
+    if (token.startsWith("*")) {
+      nodes.push(<strong key={nodeKey}>{content}</strong>);
+    } else if (token.startsWith("_")) {
+      nodes.push(<em key={nodeKey}>{content}</em>);
+    } else {
+      nodes.push(<s key={nodeKey}>{content}</s>);
+    }
+
+    lastIndex = start + token.length;
+    tokenIndex += 1;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+};
+
+const renderWhatsAppText = (text) => {
+  const safeText = String(text || "");
+  const lines = safeText.split(/\r?\n/);
+
+  return lines.map((line, lineIndex) => (
+    <Fragment key={`line-${lineIndex}`}>
+      {renderWhatsAppInline(line, `line-${lineIndex}`)}
+      {lineIndex < lines.length - 1 ? <br /> : null}
+    </Fragment>
+  ));
 };
 
 export default function PagePdp({ productId }) {
@@ -133,6 +181,13 @@ export default function PagePdp({ productId }) {
         <p className="text-1xl lg:text-2xl font-medium mt-4 mb-2 text-shadow-md ">
           {item.name}
         </p>
+        {item.description && (
+          <div className="mt-2 rounded-md bg-white/40 p-3 lg:p-4">
+            <p className="text-sm lg:text-base leading-6 text-black/90">
+              {renderWhatsAppText(item.description)}
+            </p>
+          </div>
+        )}
         <div className="flex w-full gap-2 lg:w-[600px] text-black justify-between p-2">
           <p className="flex w-full items-center gap-2 text-sm lg:text-1xl  text-shadow-md">
             <Image

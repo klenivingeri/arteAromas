@@ -28,6 +28,19 @@ function getFeaturedComments(products) {
   );
 }
 
+function sortProductsForGallery(products) {
+  if (!Array.isArray(products)) return [];
+
+  return [...products].sort((a, b) => {
+    const ratingDiff = (b.rating || 0) - (a.rating || 0);
+    if (ratingDiff !== 0) return ratingDiff;
+
+    return String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR', {
+      sensitivity: 'base',
+    });
+  });
+}
+
 export async function getHomeData() {
   try {
     const [banner, textsRaw, productsRaw] = await Promise.all([
@@ -36,14 +49,15 @@ export async function getHomeData() {
       getProductsData(),
     ]);
 
-    const products = normalizeProducts(productsRaw);
-    const comments = getFeaturedComments(products);
+    const normalizedProducts = normalizeProducts(productsRaw);
+    const products = sortProductsForGallery(normalizedProducts);
+    const comments = getFeaturedComments(normalizedProducts);
 
     return {
       banner: banner || null,
       texts: normalizeTexts(textsRaw),
       products,
-      launches: products.slice(-3).reverse(),
+      launches: normalizedProducts.slice(-3).reverse(),
       comments,
     };
   } catch (error) {

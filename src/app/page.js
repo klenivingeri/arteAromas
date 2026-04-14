@@ -5,7 +5,6 @@ import HomeProductsHydrator from "@/components/HomeProductsHydrator";
 import ScrollFadeIn from "@/components/ScrollFadeIn";
 import { getHomeData } from "@/app/actions/home";
 import { currency } from "@/utils/currency";
-import { normalizeProducts } from "@/utils/product";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -13,14 +12,93 @@ const applyDiscount = (price, discountPercent) => {
   return price * (1 - discountPercent / 100);
 };
 
-export default async function Home() {
-  const homeDataRaw = await getHomeData();
-  const normalizedProducts = normalizeProducts(homeDataRaw.products);
-  const homeData = {
-    ...homeDataRaw,
-    products: normalizedProducts,
-    launches: normalizedProducts.slice(-3).reverse(),
-  };
+const toCategorySlug = (category) =>
+  String(category || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-");
+
+function ProductCard({ product, className = "" }) {
+  const discountPercent = product.discountPercent || 0;
+  const valorComDesconto = applyDiscount(product.price || 0, discountPercent);
+  const value = discountPercent > 0 ? valorComDesconto : product.price;
+
+  return (
+    <Link
+      href={`/pdp/${product.id}`}
+      className={`flex h-[360px] flex-col rounded-md border border-[var(--logo2)]/50 p-1 text-black shadow-md lg:h-[420px] ${className}`}
+    >
+      <div className="relative h-52 lg:h-60 overflow-hidden rounded-sm">
+        <Image
+          src={product.image || "/imagem1.jpg"}
+          alt={product.name || "Produto"}
+          width={500}
+          height={500}
+          priority
+          className="h-full w-full object-cover object-center shadow-md"
+        />
+        {discountPercent > 0 && (
+          <div className="absolute shadow-md top-2 left-0 rounded-br-full rounded-tr-full bg-[var(--logo1)] text-[var(--logo2)] px-2 py-1 text-sm lg:text-xl">
+            {discountPercent}% OFF
+          </div>
+        )}
+      </div>
+
+      <div className="mt-2 px-1 h-14 lg:h-16">
+        <p
+          className="font-semibold overflow-hidden"
+          style={{
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+          }}
+        >
+          {product.name || "Produto sem nome"}
+        </p>
+      </div>
+
+      <span className="block w-full border-b border-black/10 my-2"></span>
+
+      <div className="mt-auto flex h-11 items-center gap-2 px-1 pb-1">
+        <p className="flex w-full justify-center lg:text-2xl">
+          <span className="font-semibold text-lg">{currency(value)}</span>
+        </p>
+        <span className="flex font-semibold justify-center items-center text-1xl bg-[var(--logo2)] text-white rounded-sm w-full h-10 lg:h-10">
+          Ver
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+export default async function Home({ searchParams }) {
+  const homeData = await getHomeData();
+  const resolvedSearchParams = (await searchParams) || {};
+  const selectedCategorySlug = String(resolvedSearchParams?.categoria || "").trim();
+
+  const categoryMap = new Map(
+    homeData.products
+      .map((product) => String(product?.category || "").trim())
+      .filter(Boolean)
+      .map((category) => [toCategorySlug(category), category]),
+  );
+
+  const selectedCategoryLabel = selectedCategorySlug
+    ? categoryMap.get(selectedCategorySlug) || ""
+    : "";
+
+  const galleryProducts = selectedCategoryLabel
+    ? homeData.products.filter(
+        (product) => toCategorySlug(product?.category || "") === selectedCategorySlug,
+      )
+    : homeData.products;
+
+  const galleryTitle = selectedCategoryLabel
+    ? `Galeria ${selectedCategoryLabel}`
+    : "Galeria";
   const bannerTitle = homeData.banner?.title?.trim() || "Transforme sua casa em um refúgio acolhedor";
   const bannerSubTitle = homeData.banner?.subTitle?.trim() || "Velas artesanais com aromas únicos";
   const bannerImage = homeData.banner?.imageUrl || "/banner.jpg";
@@ -135,59 +213,13 @@ export default async function Home() {
             {homeData.launches.length === 0 && (
               <p className="text-gray-500 px-4">Nenhum lançamento cadastrado no painel.</p>
             )}
-            {homeData.launches.map((product) => {
-              const discountPercent = product.discountPercent || 0;
-              const valorComDesconto = applyDiscount(product.price || 0, discountPercent);
-              const value = discountPercent > 0 ? valorComDesconto : product.price;
-
-              return (
-              <Link
+            {homeData.launches.map((product) => (
+              <ProductCard
                 key={product.id}
-                href={`/pdp/${product.id}`}
-                className="flex h-[360px] w-[200px] shrink-0 lg:h-[420px] lg:w-[260px] flex-col rounded-md border border-[var(--logo2)]/50 p-1 text-black shadow-md"
-              >
-                <div className="relative h-44 lg:h-52 overflow-hidden rounded-sm">
-                  <Image
-                    src={product.image || "/imagem1.jpg"}
-                    alt={product.name || "Produto"}
-                    width={500}
-                    height={500}
-                    priority
-                    className="h-full w-full object-cover object-center shadow-md"
-                  />
-                  {discountPercent > 0 && (
-                    <div className="absolute shadow-md top-2 left-0 rounded-br-full rounded-tr-full bg-[var(--logo1)] text-[var(--logo2)] px-2 py-1 text-sm lg:text-xl">
-                      {discountPercent}% OFF
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-2 px-1 h-14 lg:h-16">
-                  <p
-                    className="font-semibold overflow-hidden"
-                    style={{
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                    }}
-                  >
-                    {product.name || "Produto sem nome"}
-                  </p>
-                </div>
-
-                <span className="block w-full border-b border-black/10 my-2"></span>
-
-                <div className="mt-auto flex h-11 items-center gap-2 px-1 pb-1">
-                  <p className="flex w-full justify-center lg:text-2xl">
-                    <span className="font-semibold text-lg">{currency(value)}</span>
-                  </p>
-                  <span className="flex font-semibold justify-center items-center text-1xl bg-[var(--logo2)] text-white rounded-sm w-full h-10 lg:h-10">
-                    Ver
-                  </span>
-                </div>
-              </Link>
-              );
-            })}
+                product={product}
+                className="w-[200px] shrink-0 lg:w-[260px]"
+              />
+            ))}
           </div>
         </ScrollFadeIn>
         <ScrollFadeIn>
@@ -195,65 +227,20 @@ export default async function Home() {
             id="galeria"
             className="text-3xl lg:text-4xl font-medium mt-10 mb-4 px-2 lg:px-10"
           >
-            Galeria
+            {galleryTitle}
           </p>
         </ScrollFadeIn>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 px-2 lg:px-10">
-          {homeData.products.map((item) => {
-            const discountPercent = item.discountPercent || 0;
-            const valorComDesconto = applyDiscount(item.price || 0, discountPercent);
-            const value = discountPercent > 0 ? valorComDesconto : item.price;
-            return (
-              <ScrollFadeIn key={item.id}>
-                <div className="flex h-[360px] lg:h-[420px] flex-col text-black border border-[var(--logo2)]/50 p-1 rounded-md shadow-md">
-                  <div className="relative h-52 lg:h-60 overflow-hidden rounded-sm">
-                    <Image
-                      src={item.image || "/imagem1.jpg"}
-                      alt={item.name || "Produto"}
-                      width={500}
-                      height={500}
-                      priority
-                      className="h-full w-full object-cover object-center shadow-md"
-                    />
-                    {discountPercent > 0 && (
-                      <div className="absolute shadow-md top-2 left-0 rounded-br-full rounded-tr-full bg-[var(--logo1)] text-[var(--logo2)] px-2 py-1 text-sm lg:text-xl">
-                        {discountPercent}% OFF
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-2 px-1 h-14 lg:h-16">
-                    <p
-                      className="font-semibold overflow-hidden"
-                      style={{
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                      }}
-                    >
-                      {item.name || "Produto sem nome"}
-                    </p>
-                  </div>
-                  <span className="block w-full border-b border-black/10 my-2"></span>
-                  <div className="mt-auto flex h-11 items-center gap-2">
-                    <p className="flex w-full justify-center lg:text-2xl">
-                      <span className="font-semibold text-lg">
-                        {currency(value)}
-                      </span>
-                    </p>
-                    <Link
-                      href={`/pdp/${item.id}`}
-                      className="flex font-semibold justify-center items-center text-1xl bg-[var(--logo2)] text-white rounded-sm w-full h-10 lg:h-10"
-                    >
-                      Ver
-                    </Link>
-                  </div>
-                </div>
-              </ScrollFadeIn>
-            );
-          })}
-          {homeData.products.length === 0 && (
+          {galleryProducts.map((product) => (
+            <ScrollFadeIn key={product.id}>
+              <ProductCard product={product} className="w-full" />
+            </ScrollFadeIn>
+          ))}
+          {galleryProducts.length === 0 && (
             <p className="text-gray-500 col-span-2 lg:col-span-4 text-center py-8">
-              Nenhum produto cadastrado no painel.
+              {selectedCategoryLabel
+                ? `Nenhum produto encontrado na categoria ${selectedCategoryLabel}.`
+                : "Nenhum produto cadastrado no painel."}
             </p>
           )}
         </div>

@@ -1,10 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { getProductsData } from "@/app/actions/products";
+import { useProducts } from "@/context/ProductsContext";
+import { normalizeProducts } from "@/utils/product";
 
-const LiGroup = ({ isOpen, setIsOpen, isChange }) => (
+const toCategoryAnchor = (category) =>
+  String(category || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-");
+
+const LiGroup = ({ isOpen, setIsOpen, isChange, categories }) => (
   <li
     className="relative group"
     onMouseEnter={() => setIsOpen(true)}
@@ -12,7 +24,7 @@ const LiGroup = ({ isOpen, setIsOpen, isChange }) => (
   >
     {/* Gatilho: No desktop é Hover, no Mobile pode ser Clique */}
     <button
-      className={`${isChange ? "text-[var(--logo2)]" : "text-white"} flex items-center gap-1 hover:text-[var(--logo1)] transition-colors py-2`}
+      className={`${isChange ? "text-[var(--logo2)]" : "text-white"} flex items-center gap-1 ${isChange ? "hover:text-[var(--logo2)]" : "hover:text-[var(--logo1)]"} transition-colors py-2`}
       onClick={() => setIsOpen(!isOpen)}
     >
       Produtos
@@ -40,30 +52,24 @@ const LiGroup = ({ isOpen, setIsOpen, isChange }) => (
       `}
     >
       <ul className="bg-[var(--background)] border border-gray-100 rounded-lg shadow-xl overflow-hidden">
-        <li>
-          <Link
-            href="#Velas"
-            className="block px-4 py-3 text-sm text-[var(--logo2)]  hover:text-black"
-          >
-            Velas
-          </Link>
-        </li>
-        <li>
-          <Link
-            href="#Sabonetes"
-            className="block px-4 py-3 text-sm text-[var(--logo2)]  hover:text-black"
-          >
-            Sabonetes
-          </Link>
-        </li>
-        <li>
-          <Link
-            href="#Incenso"
-            className="block px-4 py-3 text-sm text-[var(--logo2)]  hover:text-black"
-          >
-            Incenso
-          </Link>
-        </li>
+        {categories.length === 0 && (
+          <li>
+            <span className="block px-4 py-3 text-sm text-gray-400">
+              Sem categorias
+            </span>
+          </li>
+        )}
+        {categories.map((category) => (
+          <li key={category}>
+            <Link
+              href={`/?categoria=${toCategoryAnchor(category)}#galeria`}
+              className="block px-4 py-3 text-sm text-[var(--logo2)] hover:text-black"
+            >
+              {category}
+            </Link>
+          </li>
+        ))}
+        
       </ul>
     </div>
   </li>
@@ -71,8 +77,39 @@ const LiGroup = ({ isOpen, setIsOpen, isChange }) => (
 
 export const Header = ({disable = false}) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { products, isHydrated, setProducts } = useProducts();
 
   const [isChange, setIsChange] = useState(disable);
+
+  const categories = useMemo(() => {
+    const categoryList = (products || [])
+      .map((product) => String(product?.category || "").trim())
+      .filter(Boolean);
+
+    return [...new Set(categoryList)].sort((a, b) =>
+      a.localeCompare(b, "pt-BR", { sensitivity: "base" }),
+    );
+  }, [products]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProductsForHeader() {
+      if (!isHydrated || products.length > 0) return;
+
+      const data = await getProductsData();
+      if (cancelled) return;
+
+      const normalized = normalizeProducts(data);
+      setProducts(normalized);
+    }
+
+    loadProductsForHeader();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isHydrated, products.length, setProducts]);
 
   useEffect(() => {
     if(disable) return;
@@ -93,7 +130,7 @@ export const Header = ({disable = false}) => {
   }, []);
 
   return (
-    <div className={`fixed top-0 left-0 z-50 w-full text-xs md:text-base absolute ${isChange ? "bg-[var(--background)] shadow-md" : "bg-gradient-to-b from-black/70 to-black/0"} transition-all`}>
+    <div className={`fixed top-0 left-0  z-50 w-full text-xs md:text-base ${isChange ? "bg-[var(--background)] shadow-md" : "bg-gradient-to-b from-black/70 to-black/0"} transition-all`}>
       <nav className="container mx-auto flex items-center justify-center w-full ">
         <ul className="flex items-center space-x-6 fade">
           <li>
@@ -104,7 +141,12 @@ export const Header = ({disable = false}) => {
               Inicio
             </Link>
           </li>
-          <LiGroup isOpen={isOpen} isChange={isChange} setIsOpen={setIsOpen} />
+          <LiGroup
+            isOpen={isOpen}
+            isChange={isChange}
+            setIsOpen={setIsOpen}
+            categories={categories}
+          />
           <li>
             <Link href="/">
               <Image
@@ -128,7 +170,7 @@ export const Header = ({disable = false}) => {
           </li>
           <li>
             <Link
-              href="/contato"
+              href="https://www.instagram.com/decor.artearomas"
               className={`${isChange ? "text-[var(--logo2)]" : "text-white"} hover:text-[var(--logo1)] transition-all`}
             >
               Contato
