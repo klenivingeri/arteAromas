@@ -113,7 +113,7 @@ export default async function Home({ searchParams }) {
       <header className="flex flex-1 w-full items-center justify-center">
         <Header />
         <div id="banner" className="w-full relative flex flex-col items-center">
-          <div className=" absolute w-full flex justify-center items-center h-[600px]">
+          <div className=" absolute w-full flex justify-center items-center h-screen">
             <div className=" w-full lg:w-[800px] p-4 slideReveal">
               <p className=" text-4xl lg:text-6xl text-[var(--logo1)] text-shadow-lg font-bold">
                 {bannerTitle}
@@ -194,7 +194,7 @@ export default async function Home({ searchParams }) {
             width={1000}
             height={20}
             priority
-            className="h-[600px] w-full object-cover object-center fade"
+            className="h-screen w-full object-cover object-center fade"
           />
         </div>
       </header>
