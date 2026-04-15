@@ -1,18 +1,17 @@
 'use server';
 
-import { put, list } from '@vercel/blob';
 import { revalidatePath } from 'next/cache';
+import {
+  getSiteContentDocument,
+  saveSiteContentDocument,
+} from '@/lib/site-content';
 
-const BANNER_JSON_PATH = 'config/banner.json';
+const BANNER_COLLECTION_NAME = 'site_banner';
 
-// Busca os dados atuais salvos no Blob
+// Busca os dados atuais salvos no Mongo
 export async function getBannerData() {
   try {
-    const { blobs } = await list({ prefix: BANNER_JSON_PATH });
-    if (blobs.length === 0) return null;
-
-    const response = await fetch(blobs[0].url);
-    return await response.json();
+    return await getSiteContentDocument(BANNER_COLLECTION_NAME, null);
   } catch (error) {
     return null;
   }
@@ -30,8 +29,8 @@ export async function saveBanner(formData) {
 
   try {
     const updatedData = {
-      title,
-      subTitle,
+      title: String(title || ''),
+      subTitle: String(subTitle || ''),
       imageUrl: String(imageUrl || ''),
       primaryButtonText,
       primaryButtonLink,
@@ -39,12 +38,7 @@ export async function saveBanner(formData) {
       secondaryButtonLink,
     };
 
-    await put(BANNER_JSON_PATH, JSON.stringify(updatedData), {
-      access: 'public',
-      contentType: 'application/json',
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    });
+    await saveSiteContentDocument(BANNER_COLLECTION_NAME, updatedData);
 
     revalidatePath('/'); 
     return { success: true, data: updatedData };

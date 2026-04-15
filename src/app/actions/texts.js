@@ -1,9 +1,12 @@
 'use server';
 
-import { put, list } from '@vercel/blob';
 import { revalidatePath } from 'next/cache';
+import {
+  getSiteContentDocument,
+  saveSiteContentDocument,
+} from '@/lib/site-content';
 
-const TEXTS_JSON_PATH = 'config/texts.json';
+const TEXTS_COLLECTION_NAME = 'site_texts';
 
 function normalizeTextItem(item) {
   if (item && typeof item === 'object' && !Array.isArray(item)) {
@@ -66,11 +69,7 @@ function normalizeTextsPayload(payload) {
 // Busca os textos salvos
 export async function getTextsData() {
   try {
-    const { blobs } = await list({ prefix: TEXTS_JSON_PATH });
-    if (blobs.length === 0) return { items: [] };
-
-    const response = await fetch(blobs[0].url);
-    const data = await response.json();
+    const data = await getSiteContentDocument(TEXTS_COLLECTION_NAME, { items: [] });
     return normalizeTextsPayload(data);
   } catch (error) {
     console.error("Erro ao buscar textos:", error);
@@ -83,12 +82,7 @@ export async function saveTexts(phrasesData) {
   try {
     const normalizedTexts = normalizeTextsPayload(phrasesData);
 
-    await put(TEXTS_JSON_PATH, JSON.stringify(normalizedTexts), {
-      access: 'public',
-      contentType: 'application/json',
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    });
+    await saveSiteContentDocument(TEXTS_COLLECTION_NAME, normalizedTexts);
 
     revalidatePath('/'); // Atualiza o cache da home/site
     return { success: true, data: normalizedTexts };

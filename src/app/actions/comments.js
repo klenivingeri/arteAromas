@@ -1,21 +1,20 @@
-'use server';
+﻿'use server';
 
-import { put, list } from '@vercel/blob';
 import { revalidatePath } from 'next/cache';
+import {
+  getSiteContentDocument,
+  saveSiteContentDocument,
+} from '@/lib/site-content';
 
-const COMMENTS_JSON_PATH = 'config/comments.json';
+const COMMENTS_COLLECTION_NAME = 'site_comments';
 
 // Busca a lista de comentários
 export async function getCommentsData() {
   try {
-    const { blobs } = await list({ prefix: COMMENTS_JSON_PATH });
-    if (blobs.length === 0) return [];
-
-    const response = await fetch(blobs[0].url);
-    const data = await response.json();
+    const data = await getSiteContentDocument(COMMENTS_COLLECTION_NAME, []);
     return Array.isArray(data) ? data : [];
   } catch (error) {
-    console.error("Erro ao buscar comentários:", error);
+    console.error('Erro ao buscar comentários:', error);
     return [];
   }
 }
@@ -23,17 +22,13 @@ export async function getCommentsData() {
 // Salva a lista completa de comentários
 export async function saveCommentsList(commentsArray) {
   try {
-    await put(COMMENTS_JSON_PATH, JSON.stringify(commentsArray), {
-      access: 'public',
-      contentType: 'application/json',
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    });
+    const safeComments = Array.isArray(commentsArray) ? commentsArray : [];
 
-    revalidatePath('/'); 
-    return { success: true, data: commentsArray };
+    await saveSiteContentDocument(COMMENTS_COLLECTION_NAME, safeComments);
+
+    revalidatePath('/');
+    return { success: true, data: safeComments };
   } catch (error) {
     return { success: false, error: error.message };
   }
 }
-

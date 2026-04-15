@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
-  authenticateFixedUserFromBlob,
+  authenticateFixedUserFromMongo,
   createSessionCookieValue,
 } from "@/lib/auth.server";
 import { SESSION_COOKIE_NAME } from "@/lib/auth.shared";
@@ -16,9 +16,9 @@ export async function loginAction(_prevState, formData) {
     return { error: "Preencha tudo" };
   }
 
-  const auth = await authenticateFixedUserFromBlob({ email, password });
+  const auth = await authenticateFixedUserFromMongo({ email, password });
   if (!auth.success) {
-    // Avoid leaking internal auth/blob configuration details in the login UI.
+    // Avoid leaking internal auth configuration details in the login UI.
     const isCredentialError = auth.message === "Credenciais inválidas";
 
     return {

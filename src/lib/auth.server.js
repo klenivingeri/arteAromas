@@ -1,13 +1,13 @@
-import {
+﻿import {
   createHash,
   createHmac,
   randomUUID,
   timingSafeEqual as nodeTimingSafeEqual,
 } from "node:crypto";
-import { list } from "@vercel/blob";
+import { getSiteContentDocument } from "@/lib/site-content";
 import { SESSION_MAX_AGE_SECONDS } from "./auth.shared";
 
-export const LOGIN_USER_PATH = "login/user.json";
+export const LOGIN_USER_COLLECTION_NAME = "site_login_users";
 
 function normalizeEmail(value) {
   return String(value || "").trim().toLowerCase();
@@ -91,59 +91,27 @@ export function verifySessionCookieServer(cookieValue, secret) {
   return nodeTimingSafeEqual(expectedBuffer, incomingBuffer);
 }
 
-function parseLoginUserPayload(rawText) {
-  try {
-    return JSON.parse(rawText);
-  } catch {
-    // Accept a relaxed format like: { email: "a@b.com", password: "123" }
-    const normalized = rawText.replace(
-      /([{,]\s*)([A-Za-z_$][\w$]*)(\s*:)/g,
-      '$1"$2"$3'
-    );
-
-    return JSON.parse(normalized);
-  }
+function buildFallbackLoginUser() {
+  return {
+    id: process.env.LOGIN_USER_ID || "decorador-admin",
+    email:
+      process.env.LOGIN_EMAIL ||
+      process.env.AUTH_EMAIL ||
+      "admin@decorartearomas.com",
+    password:
+      process.env.LOGIN_PASSWORD || process.env.AUTH_PASSWORD || "123456",
+    passwordHash: process.env.LOGIN_PASSWORD_HASH || "",
+  };
 }
 
-export async function getLoginUserFromBlob() {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    return {
-      ok: false,
-      error:
-        "BLOB_READ_WRITE_TOKEN não configurado. Defina no ambiente para ler login/user.json.",
-    };
-  }
-
+export async function getLoginUserFromMongo() {
   try {
-    const { blobs } = await list({ prefix: "login/" });
-    const loginBlob = blobs.find((item) => item.pathname === LOGIN_USER_PATH);
+    const data = await getSiteContentDocument(LOGIN_USER_COLLECTION_NAME, null);
 
-    if (!loginBlob) {
+    if (!data) {
       return {
         ok: false,
-        error: "Arquivo login/user.json não encontrado no Blob.",
-      };
-    }
-
-    const response = await fetch(loginBlob.url, { cache: "no-store" });
-    if (!response.ok) {
-      return {
-        ok: false,
-        error: `Falha ao ler login/user.json (HTTP ${response.status}).`,
-      };
-    }
-
-    const rawText = await response.text();
-    let data;
-
-    try {
-      data = parseLoginUserPayload(rawText);
-    } catch {
-      return {
-        ok: false,
-        error:
-          "login/user.json inválido. Use JSON válido, por exemplo: { \"email\": \"erick@gmail.com\", \"password\": \"123\" }",
+        error: "login-user document not found in Mongo.",
       };
     }
 
@@ -151,36 +119,25 @@ export async function getLoginUserFromBlob() {
   } catch (error) {
     return {
       ok: false,
-      error: `Erro ao acessar Blob: ${error?.message || "desconhecido"}`,
+      error: `Erro ao acessar Mongo: ${error?.message || "desconhecido"}`,
     };
   }
 }
 
-export async function authenticateFixedUserFromBlob({ email, password }) {
-  const blobResult = await getLoginUserFromBlob();
-  const user = blobResult.ok
-    ? blobResult.data
-    : {
-        id: process.env.LOGIN_USER_ID || "decorador-admin",
-        email:
-          process.env.LOGIN_EMAIL ||
-          process.env.AUTH_EMAIL ||
-          "admin@decorartearomas.com",
-        password:
-          process.env.LOGIN_PASSWORD || process.env.AUTH_PASSWORD || "123456",
-        passwordHash: process.env.LOGIN_PASSWORD_HASH || "",
-      };
+export async function authenticateFixedUserFromMongo({ email, password }) {
+  const mongoResult = await getLoginUserFromMongo();
+  const user = mongoResult.ok ? mongoResult.data : buildFallbackLoginUser();
 
   const normalizedEmail = normalizeEmail(email);
-  const blobEmail = normalizeEmail(
-    pickFirstString(user, ["email", "login", "username", "user"])
+  const storedEmail = normalizeEmail(
+    pickFirstString(user, ["email", "login", "username", "user"]),
   );
 
-  if (!normalizedEmail || !password || !blobEmail) {
+  if (!normalizedEmail || !password || !storedEmail) {
     return { success: false, message: "Credenciais inválidas" };
   }
 
-  if (normalizedEmail !== blobEmail) {
+  if (normalizedEmail !== storedEmail) {
     return { success: false, message: "Credenciais inválidas" };
   }
 
@@ -198,7 +155,7 @@ export async function authenticateFixedUserFromBlob({ email, password }) {
   } else {
     return {
       success: false,
-      message: "login/user.json precisa ter passwordHash (recomendado) ou password.",
+      message: "login-user document needs passwordHash (recommended) or password.",
     };
   }
 
@@ -206,7 +163,7 @@ export async function authenticateFixedUserFromBlob({ email, password }) {
     success: true,
     user: {
       id: user.id || "decorador-admin",
-      email: blobEmail,
+      email: storedEmail,
     },
     maxAge: SESSION_MAX_AGE_SECONDS,
   };

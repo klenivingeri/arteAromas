@@ -1,19 +1,18 @@
 'use server';
 
-import { put, list } from '@vercel/blob';
 import { revalidatePath } from 'next/cache';
+import {
+  getSiteContentDocument,
+  saveSiteContentDocument,
+} from '@/lib/site-content';
 import { normalizeProduct, prepareProductsForStorage } from '@/utils/product';
 
-const PRODUCTS_JSON_PATH = 'config/products.json';
+const PRODUCTS_COLLECTION_NAME = 'site_products';
 
 // Busca a lista de produtos
 export async function getProductsData() {
   try {
-    const { blobs } = await list({ prefix: PRODUCTS_JSON_PATH });
-    if (blobs.length === 0) return [];
-
-    const response = await fetch(blobs[0].url);
-    const data = await response.json();
+    const data = await getSiteContentDocument(PRODUCTS_COLLECTION_NAME, []);
     return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Erro ao buscar produtos:", error);
@@ -26,12 +25,7 @@ export async function saveProductsList(productsArray) {
   try {
     const sanitizedProducts = prepareProductsForStorage(productsArray);
 
-    await put(PRODUCTS_JSON_PATH, JSON.stringify(sanitizedProducts), {
-      access: 'public',
-      contentType: 'application/json',
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    });
+    await saveSiteContentDocument(PRODUCTS_COLLECTION_NAME, sanitizedProducts);
 
     revalidatePath('/'); 
     return { success: true, data: sanitizedProducts };
