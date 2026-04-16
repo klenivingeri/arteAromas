@@ -71,8 +71,31 @@ const Banner = ({ initialData, isLoading, onSaveSuccess }) => {
   if (isLoading) return <div className="p-10 animate-pulse text-gray-400">Carregando dados do banner...</div>;
 
   return (
-    <div className="relative pb-24">
-      <div className="font-bold mb-2">GESTÃO DO BANNER PRINCIPAL</div>
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="font-bold">GESTÃO DO BANNER PRINCIPAL</div>
+        <button
+          onClick={handleSave}
+          disabled={!hasChanges || saving}
+          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wide transition-all ${
+            hasChanges && !saving
+              ? "bg-blue-600 text-white hover:bg-blue-700 active:scale-95"
+              : "cursor-not-allowed bg-gray-200 text-gray-500"
+          }`}
+          title="Salvar banner"
+        >
+          {saving ? (
+            <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+          )}
+          <span>{saving ? "Salvando..." : "Salvar"}</span>
+        </button>
+      </div>
       
       <div className="border border-(--logo2) rounded-sm flex flex-col pb-4 gap-4">
         <div className="relative group overflow-hidden">
@@ -185,34 +208,6 @@ const Banner = ({ initialData, isLoading, onSaveSuccess }) => {
           </div>
 
         </div>
-      </div>
-
-      <div className="fixed bottom-6 right-6 z-60 flex flex-col items-end gap-3 pointer-events-none">
-        {saving && (
-          <div className="bg-white px-4 py-2 rounded-full shadow-xl border text-[10px] font-bold text-blue-600 animate-bounce">
-            A guardar alterações...
-          </div>
-        )}
-        <button
-          onClick={handleSave}
-          disabled={!hasChanges || saving}
-          className={`pointer-events-auto w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all ${
-            hasChanges && !saving
-              ? "bg-blue-600 text-white hover:bg-blue-700 active:scale-90"
-              : "bg-gray-300 text-gray-500 cursor-not-allowed"
-          }`}
-          title="Salvar banner"
-        >
-          {saving ? (
-            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-              <polyline points="17 21 17 13 7 13 7 21" />
-              <polyline points="7 3 7 8 15 8" />
-            </svg>
-          )}
-        </button>
       </div>
     </div>
   );

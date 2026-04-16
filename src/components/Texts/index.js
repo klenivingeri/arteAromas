@@ -3,10 +3,15 @@
 import { useEffect, useState } from "react";
 import { saveTexts } from "@/app/actions/texts";
 
-const createEmptyItem = () => ({ titulo: "", descricao: "" });
+const createEmptyItem = () => ({
+  id: `text-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  titulo: "",
+  descricao: "",
+});
 
 const normalizeTextItem = (item) => {
   if (item && typeof item === "object" && !Array.isArray(item)) {
+    const id = String(item.id || item._id || createEmptyItem().id);
     const titulo = String(item.titulo || item.title || "").trim();
     const descricao = String(item.descricao || item.description || item.texto || item.text || "").trim();
 
@@ -14,7 +19,7 @@ const normalizeTextItem = (item) => {
       return null;
     }
 
-    return { titulo, descricao };
+    return { id, titulo, descricao };
   }
 
   const descricao = String(item || "").trim();
@@ -23,7 +28,7 @@ const normalizeTextItem = (item) => {
     return null;
   }
 
-  return { titulo: "", descricao };
+  return { id: createEmptyItem().id, titulo: "", descricao };
 };
 
 const extractTextItems = (data) => {
@@ -56,6 +61,7 @@ const extractTextItems = (data) => {
 const ensureEditableItems = (items) => {
   const safeItems = Array.isArray(items)
     ? items.filter(Boolean).map((item) => ({
+        id: String(item?.id || item?._id || createEmptyItem().id),
         titulo: String(item?.titulo || ""),
         descricao: String(item?.descricao || ""),
       }))
@@ -82,6 +88,35 @@ export default function Texts({ initialData, isLoading, onSaveSuccess }) {
     setItems(ensureEditableItems(extractTextItems(initialData)));
   }, [initialData]);
 
+  const buildPayload = (sourceItems) =>
+    sourceItems
+      .map((item) => ({
+        id: String(item?.id || createEmptyItem().id),
+        titulo: String(item?.titulo || "").trim(),
+        descricao: String(item?.descricao || "").trim(),
+      }))
+      .filter((item) => item.titulo || item.descricao);
+
+  const persistItems = async (nextItems, successMessage) => {
+    setSaving(true);
+
+    const payload = buildPayload(nextItems);
+    const result = await saveTexts({ items: payload });
+
+    if (result.success) {
+      onSaveSuccess(result.data);
+      setItems(ensureEditableItems(extractTextItems(result.data)));
+
+      if (successMessage) {
+        alert(successMessage);
+      }
+    } else {
+      alert("Erro ao atualizar: " + result.error);
+    }
+
+    setSaving(false);
+  };
+
   const handleChange = (index, field, value) => {
     setItems((prev) => {
       const updated = [...prev];
@@ -94,31 +129,14 @@ export default function Texts({ initialData, isLoading, onSaveSuccess }) {
     });
   };
 
-  const removeItem = (index) => {
-    setItems((prev) => ensureEditableItems(prev.filter((_, itemIndex) => itemIndex !== index)));
+  const removeItem = async (index) => {
+    const nextItems = ensureEditableItems(items.filter((_, itemIndex) => itemIndex !== index));
+    setItems(nextItems);
+    await persistItems(nextItems);
   };
 
   const handleUpdate = async () => {
-    setSaving(true);
-
-    const payload = items
-      .map((item) => ({
-        titulo: String(item?.titulo || "").trim(),
-        descricao: String(item?.descricao || "").trim(),
-      }))
-      .filter((item) => item.titulo || item.descricao);
-
-    const result = await saveTexts({ items: payload });
-
-    if (result.success) {
-      onSaveSuccess(result.data);
-      setItems(ensureEditableItems(extractTextItems(result.data)));
-      alert("Textos rotativos atualizados com sucesso!");
-    } else {
-      alert("Erro ao atualizar: " + result.error);
-    }
-
-    setSaving(false);
+    await persistItems(items, "Textos rotativos atualizados com sucesso!");
   };
 
   if (isLoading) {
@@ -126,15 +144,15 @@ export default function Texts({ initialData, isLoading, onSaveSuccess }) {
   }
 
   return (
-    <div className="relative pb-24">
-      <div className="font-bold mb-2">TEXTOS ROTATIVOS</div>
+    <div>
+      <div className="mb-3 font-bold">TEXTOS ROTATIVOS</div>
       <div className="border border-(--logo2) rounded-sm p-4 bg-white shadow-sm">
         <div className="grid grid-cols-1 gap-4">
           {items.map((item, index) => {
             const isEmpty = !item.titulo.trim() && !item.descricao.trim();
 
             return (
-              <div key={index} className="rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
+              <div key={item.id || index} className="rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
                 <div className="grid grid-cols-1 gap-3">
                   <input
                     type="text"
@@ -151,9 +169,10 @@ export default function Texts({ initialData, isLoading, onSaveSuccess }) {
                   />
                 </div>
                 {!isEmpty && (
-                  <div className="mt-3 flex justify-end">
+                  <div className="mt-3 flex justify-end gap-2">
                     <button
                       onClick={() => removeItem(index)}
+                      disabled={saving}
                       className="p-2 text-red-500 transition-colors hover:text-red-600"
                       title="Remover texto"
                     >
@@ -163,40 +182,33 @@ export default function Texts({ initialData, isLoading, onSaveSuccess }) {
                         <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
                       </svg>
                     </button>
+                    <button
+                      onClick={handleUpdate}
+                      disabled={saving || !hasContent}
+                      className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[11px] font-black uppercase tracking-wide transition-all ${
+                        saving || !hasContent
+                          ? "cursor-not-allowed bg-gray-200 text-gray-500"
+                          : "bg-blue-600 text-white hover:bg-blue-700 active:scale-95"
+                      }`}
+                      title="Salvar textos"
+                    >
+                      {saving ? (
+                        <div className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                          <polyline points="17 21 17 13 7 13 7 21" />
+                          <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                      )}
+                      <span>{saving ? "Salvando" : "Salvar"}</span>
+                    </button>
                   </div>
                 )}
               </div>
             );
           })}
         </div>
-      </div>
-
-      <div className="fixed bottom-6 right-6 z-60 flex flex-col items-end gap-3 pointer-events-none">
-        {saving && (
-          <div className="bg-white px-4 py-2 rounded-full shadow-xl border text-[10px] font-bold text-blue-600 animate-bounce">
-            A guardar alterações...
-          </div>
-        )}
-        <button
-          onClick={handleUpdate}
-          disabled={saving || !hasContent}
-          className={`pointer-events-auto w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all ${
-            saving || !hasContent
-              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : "bg-blue-600 text-white hover:bg-blue-700 active:scale-90"
-          }`}
-          title="Salvar textos"
-        >
-          {saving ? (
-            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-              <polyline points="17 21 17 13 7 13 7 21" />
-              <polyline points="7 3 7 8 15 8" />
-            </svg>
-          )}
-        </button>
       </div>
     </div>
   );

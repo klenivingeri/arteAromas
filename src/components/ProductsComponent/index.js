@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, startTransition } from "react";
 import Image from "next/image";
-import { saveProductsList } from "@/app/actions/products";
+import { saveProductItem, saveProductsList } from "@/app/actions/products";
 import { currency } from "@/utils/currency";
 import {
   createEmptyProductComment,
@@ -32,7 +32,7 @@ const ensureTrailingComment = (comments) => {
 
 const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
   const [products, setProducts] = useState([]);
-  const [saving, setSaving] = useState(false);
+  const [savingProductId, setSavingProductId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editingTab, setEditingTab] = useState("product");
   const [categoryDropdownProductId, setCategoryDropdownProductId] = useState(null);
@@ -137,24 +137,47 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
     setEditingTab("product");
   };
 
-  const removeProduct = (index) => {
-    if (confirm("Deseja excluir este produto?")) {
-      setProducts(products.filter((_, i) => i !== index));
+  const removeProduct = async (index) => {
+    if (!confirm("Deseja excluir este produto?")) return;
+
+    const productToRemove = products[index];
+    const nextProducts = products.filter((_, i) => i !== index);
+    setProducts(nextProducts);
+
+    if (editingId === productToRemove?.id) {
+      setEditingId(null);
     }
+
+    const result = await saveProductsList(nextProducts);
+
+    if (result.success) {
+      const syncedProducts = prepareProductsForEditor(result.data);
+      setProducts(syncedProducts);
+      onSaveSuccess(syncedProducts);
+      return;
+    }
+
+    alert("Erro ao excluir produto: " + result.error);
   };
 
-  const handleSaveAll = async () => {
-    setSaving(true);
-    const payload = prepareProductsForStorage(products);
-    const result = await saveProductsList(payload);
+  const handleSaveProduct = async (index) => {
+    const currentProduct = products[index];
+    if (!currentProduct) return;
+
+    setSavingProductId(currentProduct.id);
+    const payload = prepareProductsForStorage([currentProduct])[0];
+    const result = await saveProductItem(payload);
+
     if (result.success) {
-      const productsForEditor = prepareProductsForEditor(result.data);
-      setProducts(productsForEditor);
-      onSaveSuccess(result.data);
-      setEditingId(null);
+      const updatedProducts = [...products];
+      updatedProducts[index] = prepareProductsForEditor([result.data])[0];
+      setProducts(updatedProducts);
+      onSaveSuccess(updatedProducts);
+      setEditingId(currentProduct.id);
       setCategoryDropdownProductId(null);
     }
-    setSaving(false);
+
+    setSavingProductId(null);
   };
 
   const handleCommentChange = (productIndex, commentIndex, field, value) => {
@@ -174,24 +197,33 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
   };
 
 
-  const removeComment = (productIndex, commentIndex) => {
+  const removeComment = async (productIndex, commentIndex) => {
     const selectedComment = products[productIndex]?.comments?.[commentIndex];
     if (!selectedComment) return;
 
     if (!confirm("Deseja remover este comentário?")) return;
 
-    setProducts((currentProducts) => {
-      const newProducts = [...currentProducts];
-      const currentComments = newProducts[productIndex].comments || [];
-      const filteredComments = currentComments.filter((_, index) => index !== commentIndex);
+    const nextProducts = [...products];
+    const currentComments = nextProducts[productIndex]?.comments || [];
+    const filteredComments = currentComments.filter((_, index) => index !== commentIndex);
 
-      newProducts[productIndex] = {
-        ...newProducts[productIndex],
-        comments: ensureTrailingComment(filteredComments),
-      };
+    nextProducts[productIndex] = {
+      ...nextProducts[productIndex],
+      comments: ensureTrailingComment(filteredComments),
+    };
 
-      return newProducts;
-    });
+    setProducts(nextProducts);
+
+    const result = await saveProductsList(nextProducts);
+
+    if (result.success) {
+      const syncedProducts = prepareProductsForEditor(result.data);
+      setProducts(syncedProducts);
+      onSaveSuccess(syncedProducts);
+      return;
+    }
+
+    alert("Erro ao excluir comentário: " + result.error);
   };
 
   const renderStars = (rating) => {
@@ -228,7 +260,7 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
           if (!isEditing) {
             return (
               /* --- MODO VISUALIZAÇÃO (LISTA ENXUTA) --- */
-              <div 
+              <div
                 key={product.id}
                 className="flex items-center justify-between p-4 bg-white border rounded-[28px] shadow-sm hover:shadow-md transition-all border-gray-100"
               >
@@ -248,8 +280,8 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
                     </p>
                   </div>
                 </div>
-                
-                <button 
+
+                <button
                   onClick={() => openEditor(product.id)}
                   className="ml-4 px-5 py-2.5 bg-blue-50 text-blue-600 text-[10px] font-black uppercase rounded-xl hover:bg-blue-600 hover:text-white transition-all active:scale-95"
                 >
@@ -280,7 +312,7 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
                   </span>
                 </label>
                 <div className="flex items-center gap-2">
-                                    <button
+                  <button
                     onClick={() => removeProduct(index)}
                     className="p-2 text-red-500 hover:text-red-500 transition-colors"
                   >
@@ -288,8 +320,8 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
                       <path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
                     </svg>
                   </button>
-                  
-                  <button 
+
+                  <button
                     onClick={() => setEditingId(null)}
                     className="text-[10px] font-black text-gray-400 uppercase hover:text-blue-500 px-2"
                   >
@@ -302,21 +334,19 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
               <div className="mb-6 flex rounded-2xl bg-gray-100 p-1">
                 <button
                   onClick={() => setEditingTab("product")}
-                  className={`flex-1 rounded-xl px-4 py-2 text-[11px] font-black uppercase transition-all ${
-                    editingTab === "product"
+                  className={`flex-1 rounded-xl px-4 py-2 text-[11px] font-black uppercase transition-all ${editingTab === "product"
                       ? "bg-white text-blue-600 shadow-sm"
                       : "text-gray-500"
-                  }`}
+                    }`}
                 >
                   Produto
                 </button>
                 <button
                   onClick={() => setEditingTab("comments")}
-                  className={`flex-1 rounded-xl px-4 py-2 text-[11px] font-black uppercase transition-all ${
-                    editingTab === "comments"
+                  className={`flex-1 rounded-xl px-4 py-2 text-[11px] font-black uppercase transition-all ${editingTab === "comments"
                       ? "bg-white text-blue-600 shadow-sm"
                       : "text-gray-500"
-                  }`}
+                    }`}
                 >
                   Comentários ({totalComments})
                 </button>
@@ -324,162 +354,172 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
 
               {editingTab === "product" && (
                 <div className="flex flex-col lg:flex-row gap-8">
-                {/* Coluna de Mídia */}
-                <div className="w-full lg:w-56 space-y-3">
-                  <div className="relative aspect-square w-full rounded-2xl overflow-hidden border-2 border-gray-50 bg-gray-50">
-                    {productPreviewSrc ? (
-                      <Image src={productPreviewSrc} alt={product.name} fill className="object-cover" />
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-[10px] text-gray-300 font-bold">SEM FOTO</div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase ml-1">URL da imagem</label>
-                    <input
-                      type="url"
-                      value={product.image || ""}
-                      onChange={(e) => handleChange(index, "image", e.target.value)}
-                      onBlur={() => handleImageBlur(index)}
-                      className="w-full px-4 py-3 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm font-semibold shadow-inner"
-                      placeholder="https://..."
-                    />
-                  </div>
-                </div>
-
-                {/* Coluna de Dados */}
-                <div className="flex-1">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="sm:col-span-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Nome do Produto</label>
-                      <input
-                        type="text"
-                        value={product.name}
-                        onChange={(e) => handleChange(index, "name", e.target.value)}
-                        className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm font-bold shadow-inner"
-                        placeholder="Nome..."
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2 relative">
-                      <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Categoria</label>
-                      <input
-                        type="text"
-                        value={product.category || ""}
-                        onChange={(e) => handleChange(index, "category", e.target.value)}
-                        onFocus={() => setCategoryDropdownProductId(product.id)}
-                        onBlur={() => {
-                          setTimeout(() => setCategoryDropdownProductId(null), 120);
-                        }}
-                        className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm font-semibold shadow-inner"
-                        placeholder="Ex: Aromatizador"
-                      />
-
-                      {categoryDropdownProductId === product.id && categorySuggestions.length > 0 && (
-                        <div className="absolute z-20 mt-2 w-full rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
-                          <div className="max-h-44 overflow-y-auto">
-                            {categorySuggestions.map((category) => (
-                              <button
-                                key={category}
-                                type="button"
-                                className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
-                                onMouseDown={() => {
-                                  handleChange(index, "category", category);
-                                  setCategoryDropdownProductId(null);
-                                }}
-                              >
-                                {category}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+                  {/* Coluna de Mídia */}
+                  <div className="w-full lg:w-56 space-y-3">
+                    <div className="relative aspect-square w-full rounded-2xl overflow-hidden border-2 border-gray-50 bg-gray-50">
+                      {productPreviewSrc ? (
+                        <Image src={productPreviewSrc} alt={product.name} fill className="object-cover" />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-[10px] text-gray-300 font-bold">SEM FOTO</div>
                       )}
                     </div>
-
-                    <div className="sm:col-span-2 relative">
-                      <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Linha</label>
-                      <input
-                        type="text"
-                        value={product.linha || ""}
-                        onChange={(e) => handleChange(index, "linha", e.target.value)}
-                        onFocus={() => setLinhaDropdownProductId(product.id)}
-                        onBlur={() => {
-                          setTimeout(() => setLinhaDropdownProductId(null), 120);
-                        }}
-                        className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-purple-400 text-sm font-semibold shadow-inner"
-                        placeholder="Ex: Florais, Amadeirados..."
-                      />
-
-                      {linhaDropdownProductId === product.id && linhaSuggestions.length > 0 && (
-                        <div className="absolute z-20 mt-2 w-full rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
-                          <div className="max-h-44 overflow-y-auto">
-                            {linhaSuggestions.map((linha) => (
-                              <button
-                                key={linha}
-                                type="button"
-                                className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
-                                onMouseDown={() => {
-                                  handleChange(index, "linha", linha);
-                                  setLinhaDropdownProductId(null);
-                                }}
-                              >
-                                {linha}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="sm:col-span-2 bg-yellow-50/50 p-4 rounded-2xl border border-yellow-100 shadow-sm">
-                      <div className="flex justify-between items-center mb-3">
-                        <label className="text-[10px] font-black text-yellow-700 uppercase">Popularidade</label>
-                        <div className="text-sm flex gap-1">{renderStars(product.rating)}</div>
-                      </div>
-                      <input
-                        type="range" min="1" max="10" step="1"
-                        value={product.rating || 10}
-                        onChange={(e) => handleChange(index, "rating", parseInt(e.target.value))}
-                        className="w-full h-2 bg-yellow-200 rounded-lg appearance-none cursor-pointer accent-yellow-500"
-                      />
-                    </div>
-
                     <div>
-                      <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Preço Atual</label>
-                      <div className="relative mt-1">
+                      <label className="text-[10px] font-black text-gray-400 uppercase ml-1">URL da imagem</label>
+                      <input
+                        type="url"
+                        value={product.image || ""}
+                        onChange={(e) => handleChange(index, "image", e.target.value)}
+                        onBlur={() => handleImageBlur(index)}
+                        className="w-full px-4 py-3 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm font-semibold shadow-inner"
+                        placeholder="https://..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Coluna de Dados */}
+                  <div className="flex-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Nome do Produto</label>
                         <input
                           type="text"
-                          value={currency(product.price)}
-                          onChange={(e) => {
-                            const onlyNumbers = e.target.value.replace(/\D/g, "");
-                            handleChange(index, "price", Number(onlyNumbers) / 100);
+                          value={product.name}
+                          onChange={(e) => handleChange(index, "name", e.target.value)}
+                          className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm font-bold shadow-inner"
+                          placeholder="Nome..."
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2 relative">
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Categoria</label>
+                        <input
+                          type="text"
+                          value={product.category || ""}
+                          onChange={(e) => handleChange(index, "category", e.target.value)}
+                          onFocus={() => setCategoryDropdownProductId(product.id)}
+                          onBlur={() => {
+                            setTimeout(() => setCategoryDropdownProductId(null), 120);
                           }}
-                          className="w-full px-4 py-3.5 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm shadow-inner font-bold text-blue-900"
+                          className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm font-semibold shadow-inner"
+                          placeholder="Ex: Aromatizador"
+                        />
+
+                        {categoryDropdownProductId === product.id && categorySuggestions.length > 0 && (
+                          <div className="absolute z-20 mt-2 w-full rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
+                            <div className="max-h-44 overflow-y-auto">
+                              {categorySuggestions.map((category) => (
+                                <button
+                                  key={category}
+                                  type="button"
+                                  className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
+                                  onMouseDown={() => {
+                                    handleChange(index, "category", category);
+                                    setCategoryDropdownProductId(null);
+                                  }}
+                                >
+                                  {category}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="sm:col-span-2 relative">
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Linha</label>
+                        <input
+                          type="text"
+                          value={product.linha || ""}
+                          onChange={(e) => handleChange(index, "linha", e.target.value)}
+                          onFocus={() => setLinhaDropdownProductId(product.id)}
+                          onBlur={() => {
+                            setTimeout(() => setLinhaDropdownProductId(null), 120);
+                          }}
+                          className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-purple-400 text-sm font-semibold shadow-inner"
+                          placeholder="Ex: Florais, Amadeirados..."
+                        />
+
+                        {linhaDropdownProductId === product.id && linhaSuggestions.length > 0 && (
+                          <div className="absolute z-20 mt-2 w-full rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
+                            <div className="max-h-44 overflow-y-auto">
+                              {linhaSuggestions.map((linha) => (
+                                <button
+                                  key={linha}
+                                  type="button"
+                                  className="w-full rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100"
+                                  onMouseDown={() => {
+                                    handleChange(index, "linha", linha);
+                                    setLinhaDropdownProductId(null);
+                                  }}
+                                >
+                                  {linha}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="sm:col-span-2 bg-yellow-50/50 p-4 rounded-2xl border border-yellow-100 shadow-sm">
+                        <div className="flex justify-between items-center mb-3">
+                          <label className="text-[10px] font-black text-yellow-700 uppercase">Popularidade</label>
+                          <div className="text-sm flex gap-1">{renderStars(product.rating)}</div>
+                        </div>
+                        <input
+                          type="range" min="1" max="10" step="1"
+                          value={product.rating || 10}
+                          onChange={(e) => handleChange(index, "rating", parseInt(e.target.value))}
+                          className="w-full h-2 bg-yellow-200 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Preço Atual</label>
+                        <div className="relative mt-1">
+                          <input
+                            type="text"
+                            value={currency(product.price)}
+                            onChange={(e) => {
+                              const onlyNumbers = e.target.value.replace(/\D/g, "");
+                              handleChange(index, "price", Number(onlyNumbers) / 100);
+                            }}
+                            className="w-full px-4 py-3.5 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm shadow-inner font-bold text-blue-900"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-span-1">
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Desconto</label>
+                        <input
+                          type="text"
+                          value={product.discount}
+                          onChange={(e) => handleChange(index, "discount", e.target.value)}
+                          className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-green-50 border-none focus:ring-2 focus:ring-green-400 text-sm text-green-700 font-bold shadow-inner"
+                          placeholder="Ex: -15%"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Descrição Breve</label>
+                        <textarea
+                          value={product.description}
+                          onChange={(e) => handleChange(index, "description", e.target.value)}
+                          className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm shadow-inner"
+                          rows="2"
                         />
                       </div>
                     </div>
+                    <div className="mt-8 flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
+                      {savingProductId === product.id && (
+                        <div className="rounded-full border bg-white px-4 py-2 text-[10px] font-bold text-blue-600 shadow-xl animate-bounce">
+                          A guardar produto...
+                        </div>
+                      )}
 
-                    <div className="col-span-1">
-                      <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Desconto</label>
-                      <input
-                        type="text"
-                        value={product.discount}
-                        onChange={(e) => handleChange(index, "discount", e.target.value)}
-                        className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-green-50 border-none focus:ring-2 focus:ring-green-400 text-sm text-green-700 font-bold shadow-inner"
-                        placeholder="Ex: -15%"
-                      />
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Descrição Breve</label>
-                      <textarea
-                        value={product.description}
-                        onChange={(e) => handleChange(index, "description", e.target.value)}
-                        className="w-full px-4 py-3.5 mt-1 rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-blue-400 text-sm shadow-inner"
-                        rows="2"
-                      />
-                    </div>
                   </div>
-                </div>
+
                 </div>
               )}
 
@@ -592,6 +632,25 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
                   })}
                 </div>
               )}
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => handleSaveProduct(index)}
+                  disabled={savingProductId === product.id}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-black uppercase tracking-wide text-white transition-all hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+                >
+                  {savingProductId === product.id ? (
+                    <div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                      <polyline points="17 21 17 13 7 13 7 21" />
+                      <polyline points="7 3 7 8 15 8" />
+                    </svg>
+                  )}
+                  <span>Salvar produto</span>
+                </button>
+              </div>
             </div>
           );
         })}
@@ -603,28 +662,6 @@ const ProductsComponent = ({ initialData, isLoading, onSaveSuccess }) => {
       >
         + Adicionar Novo Produto ao Catálogo
       </button>
-
-      {/* FAB de Salvar */}
-      <div className="fixed bottom-6 right-6 z-[60] flex flex-col items-end gap-3 pointer-events-none">
-        {saving && (
-          <div className="bg-white px-4 py-2 rounded-full shadow-xl border text-[10px] font-bold text-blue-600 animate-bounce">
-            A guardar alterações...
-          </div>
-        )}
-        <button
-          onClick={handleSaveAll}
-          disabled={saving}
-          className="pointer-events-auto bg-blue-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 active:scale-90 transition-all"
-        >
-          {saving ? (
-            <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
-            </svg>
-          )}
-        </button>
-      </div>
     </div>
   );
 };

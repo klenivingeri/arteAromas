@@ -2,20 +2,25 @@
 
 import { revalidatePath } from 'next/cache';
 import {
-  getSiteContentDocument,
-  saveSiteContentDocument,
+  getSiteContentDocuments,
+  saveSiteContentDocuments,
 } from '@/lib/site-content';
 
 const TEXTS_COLLECTION_NAME = 'site_texts';
 
-function normalizeTextItem(item) {
+const createTextId = () =>
+  `text-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+function normalizeTextItem(item, index = 0) {
   if (item && typeof item === 'object' && !Array.isArray(item)) {
+    const id = String(item.id || item._id || `${createTextId()}-${index}`);
     const titulo = String(item.titulo || item.title || '').trim();
     const descricao = String(item.descricao || item.description || item.texto || item.text || '').trim();
 
     if (!titulo && !descricao) return null;
 
     return {
+      id,
       titulo,
       descricao,
     };
@@ -25,6 +30,7 @@ function normalizeTextItem(item) {
   if (!descricao) return null;
 
   return {
+    id: `${createTextId()}-${index}`,
     titulo: '',
     descricao,
   };
@@ -33,14 +39,14 @@ function normalizeTextItem(item) {
 function normalizeTextsPayload(payload) {
   if (Array.isArray(payload)) {
     return {
-      items: payload.map(normalizeTextItem).filter(Boolean),
+      items: payload.map((item, index) => normalizeTextItem(item, index)).filter(Boolean),
     };
   }
 
   if (payload && typeof payload === 'object') {
     if ('items' in payload && Array.isArray(payload.items)) {
       return {
-        items: payload.items.map(normalizeTextItem).filter(Boolean),
+        items: payload.items.map((item, index) => normalizeTextItem(item, index)).filter(Boolean),
       };
     }
 
@@ -50,7 +56,7 @@ function normalizeTextsPayload(payload) {
 
       return {
         items: frases
-          .map((frase) => normalizeTextItem({ titulo, descricao: frase }))
+          .map((frase, index) => normalizeTextItem({ titulo, descricao: frase }, index))
           .filter(Boolean),
       };
     }
@@ -58,7 +64,7 @@ function normalizeTextsPayload(payload) {
     return {
       items: Object.keys(payload)
         .sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }))
-        .map((key) => normalizeTextItem(payload[key]))
+        .map((key, index) => normalizeTextItem(payload[key], index))
         .filter(Boolean),
     };
   }
@@ -69,7 +75,7 @@ function normalizeTextsPayload(payload) {
 // Busca os textos salvos
 export async function getTextsData() {
   try {
-    const data = await getSiteContentDocument(TEXTS_COLLECTION_NAME, { items: [] });
+    const data = await getSiteContentDocuments(TEXTS_COLLECTION_NAME, { items: [] });
     return normalizeTextsPayload(data);
   } catch (error) {
     console.error("Erro ao buscar textos:", error);
@@ -81,8 +87,16 @@ export async function getTextsData() {
 export async function saveTexts(phrasesData) {
   try {
     const normalizedTexts = normalizeTextsPayload(phrasesData);
+    const documents = normalizedTexts.items.map((item, index) => ({
+      _id: String(item.id || `${createTextId()}-${index}`),
+      data: {
+        id: String(item.id || `${createTextId()}-${index}`),
+        titulo: String(item.titulo || ''),
+        descricao: String(item.descricao || ''),
+      },
+    }));
 
-    await saveSiteContentDocument(TEXTS_COLLECTION_NAME, normalizedTexts);
+    await saveSiteContentDocuments(TEXTS_COLLECTION_NAME, documents);
 
     revalidatePath('/'); // Atualiza o cache da home/site
     return { success: true, data: normalizedTexts };
